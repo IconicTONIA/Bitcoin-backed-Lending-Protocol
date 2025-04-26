@@ -118,4 +118,35 @@
         (/ (* collateral-value u100) borrow-value)))
 )
 
+(define-private (is-position-healthy (position {
+        collateral-asset: (string-ascii 10),
+        collateral-amount: uint,
+        borrow-asset: (string-ascii 10),
+        borrow-amount: uint,
+        interest-index: uint,
+        timestamp: uint
+    }))
+    (>= (get-collateral-ratio position) MIN-COLLATERAL-RATIO)
+)
+
+(define-private (is-position-liquidatable (position {
+        collateral-asset: (string-ascii 10),
+        collateral-amount: uint,
+        borrow-asset: (string-ascii 10),
+        borrow-amount: uint,
+        interest-index: uint,
+        timestamp: uint
+    }))
+    (let (
+        (params (default-to {
+            collateral-factor: u750,
+            liquidation-threshold: LIQUIDATION-THRESHOLD,
+            liquidation-penalty: LIQUIDATION-PENALTY,
+            borrow-enabled: true,
+            deposit-enabled: true
+        } (map-get? asset-params (get collateral-asset position))))
+        (liquidation-threshold (get liquidation-threshold params))
+    )
+    (< (get-collateral-ratio position) liquidation-threshold))
+)
 

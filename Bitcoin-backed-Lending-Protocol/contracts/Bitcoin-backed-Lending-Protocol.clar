@@ -21,5 +21,27 @@
 (define-constant OPTIMAL-UTILIZATION u800) ;; 80% optimal utilization rate
 (define-constant SECONDS-PER-YEAR u31536000) ;; Seconds in a year for interest calculations
 
+;; Data maps for protocol state
+(define-map supported-assets (string-ascii 10) bool)
+(define-map oracle-prices (string-ascii 10) uint)
+(define-map asset-pools (string-ascii 10) {
+    total-deposits: uint,
+    total-borrows: uint,
+    last-update-time: uint
+})
+
+;; Loan positions
+(define-map loan-positions 
+    { owner: principal, position-id: uint }
+    {
+        collateral-asset: (string-ascii 10),
+        collateral-amount: uint,
+        borrow-asset: (string-ascii 10),
+        borrow-amount: uint,
+        interest-index: uint,
+        timestamp: uint
+    }
+)
+
 
 

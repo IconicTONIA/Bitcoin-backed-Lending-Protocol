@@ -62,5 +62,14 @@
     }
 )
 
+;; Helper functions
+(define-private (is-asset-supported (asset-symbol (string-ascii 10)))
+    (default-to false (map-get? supported-assets asset-symbol))
+)
+
+(define-private (get-asset-price (asset-symbol (string-ascii 10)))
+    (default-to u0 (map-get? oracle-prices asset-symbol))
+)
+
 
 

@@ -150,3 +150,71 @@
     (< (get-collateral-ratio position) liquidation-threshold))
 )
 
+;; Read-only functions
+(define-read-only (get-collateral-ratio-for-position (user principal) (position-id uint))
+    (let (
+        (position (default-to {
+                collateral-asset: "",
+                collateral-amount: u0,
+                borrow-asset: "",
+                borrow-amount: u0,
+                interest-index: u0,
+                timestamp: u0
+            } (map-get? loan-positions { owner: user, position-id: position-id })))
+    )
+    (get-collateral-ratio position))
+)
+
+(define-read-only (get-max-borrow-amount (user principal) (position-id uint) (borrow-asset (string-ascii 10)))
+    (let (
+        (position (default-to {
+                collateral-asset: "",
+                collateral-amount: u0,
+                borrow-asset: "",
+                borrow-amount: u0,
+                interest-index: u0,
+                timestamp: u0
+            } (map-get? loan-positions { owner: user, position-id: position-id })))
+        (collateral-asset (get collateral-asset position))
+        (asset-param (default-to {
+            collateral-factor: u750,
+            liquidation-threshold: LIQUIDATION-THRESHOLD,
+            liquidation-penalty: LIQUIDATION-PENALTY,
+            borrow-enabled: true,
+            deposit-enabled: true
+        } (map-get? asset-params collateral-asset)))
+        (collateral-value (get-position-collateral-value position))
+        (collateral-factor (get collateral-factor asset-param))
+        (max-borrow-value (/ (* collateral-value collateral-factor) u1000))
+        (current-borrow-value (get-position-borrow-value position))
+        (available-borrow-value (- max-borrow-value current-borrow-value))
+        (borrow-price (get-asset-price borrow-asset))
+    )
+    (if (is-eq borrow-price u0)
+        u0
+        (/ (* available-borrow-value u1000000) borrow-price))
+    )
+)
+
+
+
+(define-read-only (get-user-positions (user principal))
+    (default-to (list) (map-get? user-position-ids user))
+)
+
+(define-read-only (get-asset-total-deposits (asset-symbol (string-ascii 10)))
+    (let (
+        (pool (default-to { total-deposits: u0, total-borrows: u0, last-update-time: u0 } 
+                          (map-get? asset-pools asset-symbol)))
+    )
+    (get total-deposits pool))
+)
+
+(define-read-only (get-asset-total-borrows (asset-symbol (string-ascii 10)))
+    (let (
+        (pool (default-to { total-deposits: u0, total-borrows: u0, last-update-time: u0 } 
+                          (map-get? asset-pools asset-symbol)))
+    )
+    (get total-borrows pool))
+)
+

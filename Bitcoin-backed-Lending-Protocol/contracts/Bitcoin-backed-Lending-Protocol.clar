@@ -71,5 +71,20 @@
     (default-to u0 (map-get? oracle-prices asset-symbol))
 )
 
+(define-private (get-position-collateral-value (position {
+        collateral-asset: (string-ascii 10),
+        collateral-amount: uint,
+        borrow-asset: (string-ascii 10),
+        borrow-amount: uint,
+        interest-index: uint,
+        timestamp: uint
+    }))
+    (let (
+        (collateral-price (get-asset-price (get collateral-asset position)))
+        (collateral-amount (get collateral-amount position))
+    )
+    (/ (* collateral-amount collateral-price) u1000000))
+)
+
 
 

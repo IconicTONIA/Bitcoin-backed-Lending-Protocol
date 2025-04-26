@@ -86,5 +86,36 @@
     (/ (* collateral-amount collateral-price) u1000000))
 )
 
+(define-private (get-position-borrow-value (position {
+        collateral-asset: (string-ascii 10),
+        collateral-amount: uint,
+        borrow-asset: (string-ascii 10),
+        borrow-amount: uint,
+        interest-index: uint,
+        timestamp: uint
+    }))
+    (let (
+        (borrow-price (get-asset-price (get borrow-asset position)))
+        (borrow-amount (get borrow-amount position))
+    )
+    (/ (* borrow-amount borrow-price) u1000000))
+)
+
+(define-private (get-collateral-ratio (position {
+        collateral-asset: (string-ascii 10),
+        collateral-amount: uint,
+        borrow-asset: (string-ascii 10),
+        borrow-amount: uint,
+        interest-index: uint,
+        timestamp: uint
+    }))
+    (let (
+        (collateral-value (get-position-collateral-value position))
+        (borrow-value (get-position-borrow-value position))
+    )
+    (if (is-eq borrow-value u0)
+        u0
+        (/ (* collateral-value u100) borrow-value)))
+)
 
 

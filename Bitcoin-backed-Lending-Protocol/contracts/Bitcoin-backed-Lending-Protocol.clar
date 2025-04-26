@@ -43,5 +43,24 @@
     }
 )
 
+(define-map user-position-ids 
+    principal 
+    (list 100 uint)
+)
+
+(define-data-var next-position-id uint u1)
+
+;; Governance parameters
+(define-map asset-params 
+    (string-ascii 10)
+    {
+        collateral-factor: uint,
+        liquidation-threshold: uint,
+        liquidation-penalty: uint,
+        borrow-enabled: bool,
+        deposit-enabled: bool
+    }
+)
+
 
 

@@ -423,3 +423,22 @@
 (define-constant PROPOSAL-STATE-EXECUTED u6)
 (define-constant PROPOSAL-STATE-EXPIRED u7)
 
+;; Governance token trait
+(define-trait governance-token-trait
+    (
+        (get-balance (principal) (response uint uint))
+        (get-total-supply () (response uint uint))
+    )
+)
+
+;; Timelock data structures
+(define-map timelock-transactions 
+    uint
+    {
+        target: principal,
+        function-name: (string-ascii 100),
+        parameters: (list 10 (buff 100)),
+        eta: uint,
+        executed: bool
+    }
+)

@@ -276,8 +276,7 @@
         (var-set flash-loan-nonce (+ loan-id u1))
         
         ;; Transfer funds to receiver
-        ;; Note: In real implementation this would call the appropriate transfer function
-        ;; for the asset being borrowed
+
         
         ;; Execute operation on receiver contract
         (match (contract-call? receiver execute-operation asset-symbol amount fee-amount loan-id)
@@ -317,3 +316,30 @@
         )
     )
 )
+
+;; Interest bearing token trait
+(define-trait interest-token-trait
+    (
+        (mint (uint principal) (response bool uint))
+        (burn (uint principal) (response bool uint))
+        (update-index (uint) (response uint uint))
+    )
+)
+
+;; Interest token contracts by asset
+(define-map asset-interest-token (string-ascii 10) principal)
+
+;; Interest indices for accurate interest tracking
+(define-map interest-index (string-ascii 10) { 
+    borrow-index: uint,
+    supply-index: uint,
+    last-update-time: uint
+})
+
+;; Interest model parameters
+(define-map interest-model-params (string-ascii 10) {
+    base-rate: uint,
+    slope1: uint,
+    slope2: uint,
+    optimal-utilization: uint
+})

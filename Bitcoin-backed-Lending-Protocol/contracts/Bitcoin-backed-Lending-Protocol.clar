@@ -371,3 +371,39 @@
            (/ (* (- utilization-rate optimal-utilization) slope2) u1000))
     ))
 )
+
+;; Update interest indices
+(define-public (update-interest-indices (asset-symbol (string-ascii 10)))
+    (let (
+        (pool (default-to { total-deposits: u0, total-borrows: u0, last-update-time: u0 } 
+                         (map-get? asset-pools asset-symbol)))
+        (indices (default-to { borrow-index: u1000000, supply-index: u1000000, last-update-time: u0 } 
+                             (map-get? interest-index asset-symbol)))
+        (current-time stacks-block-height)
+        (time-elapsed (- current-time (get last-update-time indices)))
+        (borrow-rate (calculate-interest-rate asset-symbol))
+        (borrow-interest (/ (* borrow-rate time-elapsed) SECONDS-PER-YEAR))
+        (supply-rate (if (is-eq (get total-borrows pool) u0)
+                       u0
+                       (/ (* borrow-rate (get total-borrows pool)) (get total-deposits pool))))
+        (supply-interest (/ (* supply-rate time-elapsed) SECONDS-PER-YEAR))
+        (new-borrow-index (+ (get borrow-index indices) 
+                            (/ (* (get borrow-index indices) borrow-interest) u10000)))
+        (new-supply-index (+ (get supply-index indices) 
+                            (/ (* (get supply-index indices) supply-interest) u10000)))
+    )
+        ;; Update indices
+        (map-set interest-index asset-symbol {
+            borrow-index: new-borrow-index,
+            supply-index: new-supply-index,
+            last-update-time: current-time
+        })
+        
+        
+        (ok { 
+            borrow-index: new-borrow-index, 
+            supply-index: new-supply-index 
+        })
+    )
+)
+

@@ -484,3 +484,18 @@
     borrow-increase-threshold: uint, ;; Basis points
     deposit-decrease-threshold: uint ;; Basis points
 })
+
+;; Price history for volatility tracking
+(define-map price-history 
+    { asset: (string-ascii 10), timestamp: uint } 
+    uint
+)
+
+;; Pause/unpause protocol globally
+(define-public (set-global-pause (paused bool))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (var-set global-pause paused)
+        (ok paused)
+    )
+)

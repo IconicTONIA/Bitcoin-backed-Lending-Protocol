@@ -218,3 +218,17 @@
     (get total-borrows pool))
 )
 
+;; Flash loan constants
+(define-constant FLASH-LOAN-FEE u10) ;; 0.1% fee (basis points)
+
+;; Flash loan data
+(define-map flash-loan-state 
+    uint 
+    { 
+        active: bool,
+        borrower: principal,
+        asset: (string-ascii 10),
+        amount: uint,
+        fee: uint
+    }
+)

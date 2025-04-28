@@ -561,3 +561,20 @@
                 (- u100 safety-margin))) ;; Linear risk score based on safety margin
     )
 )
+
+;; Multi-collateral position data structure
+(define-map multi-collateral-positions 
+    { owner: principal, position-id: uint }
+    {
+        collaterals: (list 10 { 
+            asset: (string-ascii 10), 
+            amount: uint 
+        }),
+        borrows: (list 10 { 
+            asset: (string-ascii 10), 
+            amount: uint, 
+            interest-index: uint 
+        }),
+        timestamp: uint
+    }
+)

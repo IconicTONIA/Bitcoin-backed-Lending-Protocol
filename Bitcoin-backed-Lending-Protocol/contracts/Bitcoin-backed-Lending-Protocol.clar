@@ -499,3 +499,13 @@
         (ok paused)
     )
 )
+
+;; Set reserve factor for an asset
+(define-public (set-reserve-factor (asset-symbol (string-ascii 10)) (factor uint))
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (asserts! (<= factor u5000) ERR-INVALID-AMOUNT) ;; Max 50%
+        (map-set reserve-factor asset-symbol factor)
+        (ok factor)
+    )
+)

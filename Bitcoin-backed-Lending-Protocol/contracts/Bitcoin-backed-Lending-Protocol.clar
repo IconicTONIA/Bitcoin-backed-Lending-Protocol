@@ -509,3 +509,23 @@
         (ok factor)
     )
 )
+
+;; Set circuit breaker thresholds
+(define-public (set-circuit-breakers 
+    (asset-symbol (string-ascii 10))
+    (price-decrease-threshold uint)
+    (price-increase-threshold uint)
+    (borrow-increase-threshold uint)
+    (deposit-decrease-threshold uint)
+)
+    (begin
+        (asserts! (is-eq tx-sender CONTRACT-OWNER) ERR-NOT-AUTHORIZED)
+        (map-set circuit-breakers asset-symbol {
+            price-decrease-threshold: price-decrease-threshold,
+            price-increase-threshold: price-increase-threshold,
+            borrow-increase-threshold: borrow-increase-threshold,
+            deposit-decrease-threshold: deposit-decrease-threshold
+        })
+        (ok true)
+    )
+)

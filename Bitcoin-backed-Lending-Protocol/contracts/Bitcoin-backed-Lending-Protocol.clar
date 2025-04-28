@@ -218,3 +218,208 @@
     (get total-borrows pool))
 )
 
+;; Flash loan constants
+(define-constant FLASH-LOAN-FEE u10) ;; 0.1% fee (basis points)
+
+;; Flash loan data
+(define-map flash-loan-state 
+    uint 
+    { 
+        active: bool,
+        borrower: principal,
+        asset: (string-ascii 10),
+        amount: uint,
+        fee: uint
+    }
+)
+
+(define-data-var flash-loan-nonce uint u0)
+
+;; Flash loans require callbacks to ensure the loan is repaid in the same transaction
+(define-trait flash-loan-receiver 
+    (
+        (execute-operation ((string-ascii 10) uint uint uint) (response bool uint))
+    )
+)
+
+(define-public (flash-loan 
+    (asset-symbol (string-ascii 10)) 
+    (amount uint) 
+    (receiver <flash-loan-receiver>)
+    (params (optional (buff 1024)))
+)
+    (let (
+        (loan-id (var-get flash-loan-nonce))
+        (asset-pool (default-to { total-deposits: u0, total-borrows: u0, last-update-time: u0 } 
+                               (map-get? asset-pools asset-symbol)))
+        (total-liquidity (get total-deposits asset-pool))
+        (fee-amount (/ (* amount FLASH-LOAN-FEE) u10000))
+    )
+        ;; Check asset is supported
+        (asserts! (is-asset-supported asset-symbol) ERR-ASSET-NOT-SUPPORTED)
+        
+        ;; Check there is enough liquidity
+        (asserts! (<= amount total-liquidity) ERR-INSUFFICIENT-LIQUIDITY)
+        
+        ;; Set flash loan state
+        (map-set flash-loan-state loan-id 
+            { 
+                active: true,
+                borrower: tx-sender,
+                asset: asset-symbol,
+                amount: amount,
+                fee: fee-amount
+            }
+        )
+        
+        ;; Increment nonce
+        (var-set flash-loan-nonce (+ loan-id u1))
+        
+        ;; Transfer funds to receiver
+
+        
+        ;; Execute operation on receiver contract
+        (match (contract-call? receiver execute-operation asset-symbol amount fee-amount loan-id)
+            success 
+            (begin
+                ;; Verify loan was repaid with fee
+                ;; In a real implementation, this would check that the funds were actually returned
+                ;; to the protocol plus the fee
+
+                ;; Update pool state to add the fee
+                (map-set asset-pools asset-symbol 
+                    { 
+                        total-deposits: (+ total-liquidity fee-amount), 
+                        total-borrows: (get total-borrows asset-pool),
+                        last-update-time:stacks-block-height
+                    }
+                )
+                
+                ;; Set loan as inactive
+                (map-set flash-loan-state loan-id 
+                    { 
+                        active: false,
+                        borrower: tx-sender,
+                        asset: asset-symbol,
+                        amount: amount,
+                        fee: fee-amount
+                    }
+                )
+                
+                (ok true)
+            )
+            error (begin
+                ;; Operation failed, but in a real transaction this would revert anyway
+                ;; Just for clarity in the code
+                (err error)
+            )
+        )
+    )
+)
+
+;; Interest bearing token trait
+(define-trait interest-token-trait
+    (
+        (mint (uint principal) (response bool uint))
+        (burn (uint principal) (response bool uint))
+        (update-index (uint) (response uint uint))
+    )
+)
+
+;; Interest token contracts by asset
+(define-map asset-interest-token (string-ascii 10) principal)
+
+;; Interest indices for accurate interest tracking
+(define-map interest-index (string-ascii 10) { 
+    borrow-index: uint,
+    supply-index: uint,
+    last-update-time: uint
+})
+
+;; Interest model parameters
+(define-map interest-model-params (string-ascii 10) {
+    base-rate: uint,
+    slope1: uint,
+    slope2: uint,
+    optimal-utilization: uint
+})
+
+;; Calculate the current interest rate based on utilization
+(define-read-only (calculate-interest-rate (asset-symbol (string-ascii 10)))
+    (let (
+        (pool (default-to { total-deposits: u0, total-borrows: u0, last-update-time: u0 } 
+                          (map-get? asset-pools asset-symbol)))
+        (model (default-to { 
+            base-rate: INTEREST-RATE-BASE, 
+            slope1: INTEREST-RATE-SLOPE1,
+            slope2: INTEREST-RATE-SLOPE2,
+            optimal-utilization: OPTIMAL-UTILIZATION
+        } (map-get? interest-model-params asset-symbol)))
+        (total-deposits (get total-deposits pool))
+        (total-borrows (get total-borrows pool))
+        (utilization-rate (if (is-eq total-deposits u0) 
+                             u0 
+                             (/ (* total-borrows u1000) total-deposits)))
+        (base-rate (get base-rate model))
+        (slope1 (get slope1 model))
+        (slope2 (get slope2 model))
+        (optimal-utilization (get optimal-utilization model))
+    )
+    (if (<= utilization-rate optimal-utilization)
+        (+ base-rate (/ (* utilization-rate slope1) u1000))
+        (+ base-rate (/ (* optimal-utilization slope1) u1000) 
+           (/ (* (- utilization-rate optimal-utilization) slope2) u1000))
+    ))
+)
+
+;; Update interest indices
+(define-public (update-interest-indices (asset-symbol (string-ascii 10)))
+    (let (
+        (pool (default-to { total-deposits: u0, total-borrows: u0, last-update-time: u0 } 
+                         (map-get? asset-pools asset-symbol)))
+        (indices (default-to { borrow-index: u1000000, supply-index: u1000000, last-update-time: u0 } 
+                             (map-get? interest-index asset-symbol)))
+        (current-time stacks-block-height)
+        (time-elapsed (- current-time (get last-update-time indices)))
+        (borrow-rate (calculate-interest-rate asset-symbol))
+        (borrow-interest (/ (* borrow-rate time-elapsed) SECONDS-PER-YEAR))
+        (supply-rate (if (is-eq (get total-borrows pool) u0)
+                       u0
+                       (/ (* borrow-rate (get total-borrows pool)) (get total-deposits pool))))
+        (supply-interest (/ (* supply-rate time-elapsed) SECONDS-PER-YEAR))
+        (new-borrow-index (+ (get borrow-index indices) 
+                            (/ (* (get borrow-index indices) borrow-interest) u10000)))
+        (new-supply-index (+ (get supply-index indices) 
+                            (/ (* (get supply-index indices) supply-interest) u10000)))
+    )
+        ;; Update indices
+        (map-set interest-index asset-symbol {
+            borrow-index: new-borrow-index,
+            supply-index: new-supply-index,
+            last-update-time: current-time
+        })
+        
+        
+        (ok { 
+            borrow-index: new-borrow-index, 
+            supply-index: new-supply-index 
+        })
+    )
+)
+
+;; Governance constants
+(define-constant VOTING-DELAY u1440) ;; ~1 day in blocks
+(define-constant VOTING-PERIOD u10080) ;; ~7 days in blocks
+(define-constant PROPOSAL-THRESHOLD u100000000000) ;; 100,000 governance tokens
+(define-constant QUORUM-VOTES u1000000000000) ;; 1,000,000 governance tokens
+
+;; Proposal states
+(define-constant PROPOSAL-STATE-PENDING u0)
+(define-constant PROPOSAL-STATE-ACTIVE u1)
+(define-constant PROPOSAL-STATE-CANCELED u2)
+(define-constant PROPOSAL-STATE-DEFEATED u3)
+(define-constant PROPOSAL-STATE-SUCCEEDED u4)
+(define-constant PROPOSAL-STATE-QUEUED u5)
+(define-constant PROPOSAL-STATE-EXECUTED u6)
+(define-constant PROPOSAL-STATE-EXPIRED u7)
+

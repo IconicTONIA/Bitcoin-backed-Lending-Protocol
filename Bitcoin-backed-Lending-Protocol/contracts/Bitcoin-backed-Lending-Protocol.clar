@@ -343,3 +343,31 @@
     slope2: uint,
     optimal-utilization: uint
 })
+
+;; Calculate the current interest rate based on utilization
+(define-read-only (calculate-interest-rate (asset-symbol (string-ascii 10)))
+    (let (
+        (pool (default-to { total-deposits: u0, total-borrows: u0, last-update-time: u0 } 
+                          (map-get? asset-pools asset-symbol)))
+        (model (default-to { 
+            base-rate: INTEREST-RATE-BASE, 
+            slope1: INTEREST-RATE-SLOPE1,
+            slope2: INTEREST-RATE-SLOPE2,
+            optimal-utilization: OPTIMAL-UTILIZATION
+        } (map-get? interest-model-params asset-symbol)))
+        (total-deposits (get total-deposits pool))
+        (total-borrows (get total-borrows pool))
+        (utilization-rate (if (is-eq total-deposits u0) 
+                             u0 
+                             (/ (* total-borrows u1000) total-deposits)))
+        (base-rate (get base-rate model))
+        (slope1 (get slope1 model))
+        (slope2 (get slope2 model))
+        (optimal-utilization (get optimal-utilization model))
+    )
+    (if (<= utilization-rate optimal-utilization)
+        (+ base-rate (/ (* utilization-rate slope1) u1000))
+        (+ base-rate (/ (* optimal-utilization slope1) u1000) 
+           (/ (* (- utilization-rate optimal-utilization) slope2) u1000))
+    ))
+)

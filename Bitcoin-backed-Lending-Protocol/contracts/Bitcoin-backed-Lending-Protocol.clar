@@ -241,3 +241,79 @@
         (execute-operation ((string-ascii 10) uint uint uint) (response bool uint))
     )
 )
+
+(define-public (flash-loan 
+    (asset-symbol (string-ascii 10)) 
+    (amount uint) 
+    (receiver <flash-loan-receiver>)
+    (params (optional (buff 1024)))
+)
+    (let (
+        (loan-id (var-get flash-loan-nonce))
+        (asset-pool (default-to { total-deposits: u0, total-borrows: u0, last-update-time: u0 } 
+                               (map-get? asset-pools asset-symbol)))
+        (total-liquidity (get total-deposits asset-pool))
+        (fee-amount (/ (* amount FLASH-LOAN-FEE) u10000))
+    )
+        ;; Check asset is supported
+        (asserts! (is-asset-supported asset-symbol) ERR-ASSET-NOT-SUPPORTED)
+        
+        ;; Check there is enough liquidity
+        (asserts! (<= amount total-liquidity) ERR-INSUFFICIENT-LIQUIDITY)
+        
+        ;; Set flash loan state
+        (map-set flash-loan-state loan-id 
+            { 
+                active: true,
+                borrower: tx-sender,
+                asset: asset-symbol,
+                amount: amount,
+                fee: fee-amount
+            }
+        )
+        
+        ;; Increment nonce
+        (var-set flash-loan-nonce (+ loan-id u1))
+        
+        ;; Transfer funds to receiver
+        ;; Note: In real implementation this would call the appropriate transfer function
+        ;; for the asset being borrowed
+        
+        ;; Execute operation on receiver contract
+        (match (contract-call? receiver execute-operation asset-symbol amount fee-amount loan-id)
+            success 
+            (begin
+                ;; Verify loan was repaid with fee
+                ;; In a real implementation, this would check that the funds were actually returned
+                ;; to the protocol plus the fee
+
+                ;; Update pool state to add the fee
+                (map-set asset-pools asset-symbol 
+                    { 
+                        total-deposits: (+ total-liquidity fee-amount), 
+                        total-borrows: (get total-borrows asset-pool),
+                        last-update-time:stacks-block-height
+                    }
+                )
+                
+                ;; Set loan as inactive
+                (map-set flash-loan-state loan-id 
+                    { 
+                        active: false,
+                        borrower: tx-sender,
+                        asset: asset-symbol,
+                        amount: amount,
+                        fee: fee-amount
+                    }
+                )
+                
+                (ok true)
+            )
+            error (begin
+                ;; Operation failed, but in a real transaction this would revert anyway
+                ;; Just for clarity in the code
+                (err error)
+            )
+        )
+    )
+)

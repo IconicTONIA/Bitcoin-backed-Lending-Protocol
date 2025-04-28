@@ -442,3 +442,45 @@
         executed: bool
     }
 )
+
+;; Governance data structures
+(define-data-var governance-token principal tx-sender) ;; Should be set to governance token contract
+(define-data-var proposal-count uint u0)
+(define-data-var timelock-delay uint u172800) ;; 2 days (in seconds)
+
+(define-map proposals 
+    uint 
+    {
+        proposer: principal,
+        start-block: uint,
+        end-block: uint,
+        description: (string-utf8 500),
+        for-votes: uint,
+        against-votes: uint,
+        canceled: bool,
+        executed: bool,
+        transaction-id: uint
+    }
+)
+
+;; Risk parameters
+(define-data-var global-pause bool false)
+(define-map asset-pause (string-ascii 10) { 
+    deposits-paused: bool, 
+    borrows-paused: bool,
+    liquidations-paused: bool
+})
+
+;; Reserve factors - percentage of interest that goes to protocol reserves
+(define-map reserve-factor (string-ascii 10) uint) ;; Basis points
+
+;; Protocol reserves
+(define-map protocol-reserves (string-ascii 10) uint)
+
+;; Circuit breaker thresholds
+(define-map circuit-breakers (string-ascii 10) {
+    price-decrease-threshold: uint, ;; Basis points
+    price-increase-threshold: uint, ;; Basis points
+    borrow-increase-threshold: uint, ;; Basis points
+    deposit-decrease-threshold: uint ;; Basis points
+})

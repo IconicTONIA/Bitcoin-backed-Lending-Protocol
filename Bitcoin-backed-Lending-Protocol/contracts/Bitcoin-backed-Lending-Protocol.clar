@@ -407,3 +407,19 @@
     )
 )
 
+;; Governance constants
+(define-constant VOTING-DELAY u1440) ;; ~1 day in blocks
+(define-constant VOTING-PERIOD u10080) ;; ~7 days in blocks
+(define-constant PROPOSAL-THRESHOLD u100000000000) ;; 100,000 governance tokens
+(define-constant QUORUM-VOTES u1000000000000) ;; 1,000,000 governance tokens
+
+;; Proposal states
+(define-constant PROPOSAL-STATE-PENDING u0)
+(define-constant PROPOSAL-STATE-ACTIVE u1)
+(define-constant PROPOSAL-STATE-CANCELED u2)
+(define-constant PROPOSAL-STATE-DEFEATED u3)
+(define-constant PROPOSAL-STATE-SUCCEEDED u4)
+(define-constant PROPOSAL-STATE-QUEUED u5)
+(define-constant PROPOSAL-STATE-EXECUTED u6)
+(define-constant PROPOSAL-STATE-EXPIRED u7)
+

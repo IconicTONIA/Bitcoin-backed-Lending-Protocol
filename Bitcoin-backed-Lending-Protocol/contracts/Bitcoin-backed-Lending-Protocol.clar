@@ -232,3 +232,12 @@
         fee: uint
     }
 )
+
+(define-data-var flash-loan-nonce uint u0)
+
+;; Flash loans require callbacks to ensure the loan is repaid in the same transaction
+(define-trait flash-loan-receiver 
+    (
+        (execute-operation ((string-ascii 10) uint uint uint) (response bool uint))
+    )
+)
